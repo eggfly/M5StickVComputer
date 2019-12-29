@@ -2,7 +2,6 @@
 
 # start of pmu.py
 from machine import I2C, Timer
-import machine
 
 
 class PMUError(Exception):
