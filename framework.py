@@ -1,8 +1,8 @@
 
 class BaseApp:
-    def __init__(self, system_singleton):
+    def __init__(self, system):
         print("BaseApp.__init__ called")
-        self.system_singleton = system_singleton
+        self.system = system
 
     def on_draw(self):
         pass
@@ -18,4 +18,7 @@ class BaseApp:
         return False
 
     def invalidate_drawing(self):
-        self.system_singleton.invalidate_drawing()
+        self.system.invalidate_drawing()
+
+    def get_system(self):
+        return self.system

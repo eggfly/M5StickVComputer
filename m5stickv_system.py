@@ -1,5 +1,6 @@
 import lcd
 import machine
+import sys
 
 from Maix import GPIO
 from board import board_info
@@ -65,8 +66,8 @@ class M5StickVSystem:
         self.home_button.irq(self.button_irq, GPIO.IRQ_BOTH,
                              GPIO.WAKEUP_NOT_SUPPORT, 7)
 
-        # if self.home_button.value() == 0:  # If don't want to run the demo
-        #     sys.exit()
+        if self.home_button.value() == 0:  # If don't want to run the demo
+            sys.exit()
 
         # top button
         fm.register(board_info.BUTTON_B, fm.fpioa.GPIOHS22)
@@ -103,6 +104,33 @@ class M5StickVSystem:
         self.is_drawing_dirty = True
 
     def run(self):
+        try:
+            self.run_inner()
+        except Exception as e:
+            import uio
+            string_io = uio.StringIO()
+            sys.print_exception(e, string_io)
+            s = string_io.getvalue()
+            print("showing blue screen:", s)
+            lcd.clear(lcd.BLUE)
+            msg = "** " + str(e)
+            chunks, chunk_size = len(msg), 29
+            msg_lines = [ msg[i:i+chunk_size] for i in range(0, chunks, chunk_size) ]
+            # "A problem has been detected and windows has been shut down to prevent damange to your m5stickv :)"
+            lcd.draw_string(1, 1, "A problem has been detected and windows", lcd.WHITE, lcd.BLUE)
+            lcd.draw_string(1, 1 + 5 + 16, "Technical information:", lcd.WHITE, lcd.BLUE)
+            current_y = 1 + 5 + 16 * 2
+            for line in msg_lines:
+                lcd.draw_string(1, current_y, line, lcd.WHITE, lcd.BLUE)
+                current_y += 16
+                if current_y >= lcd.height():
+                    break
+            lcd.draw_string(1, current_y, s, lcd.WHITE, lcd.BLUE)
+            lcd.draw_string(1, lcd.height() - 17, "Will reboot after 10 seconds..", lcd.WHITE, lcd.BLUE)
+            time.sleep(10)
+            machine.reset()
+
+    def run_inner(self):
         while True:
             if self.is_drawing_dirty:
                 print("drawing is dirty")
