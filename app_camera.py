@@ -52,6 +52,7 @@ class CameraApp(BaseApp):
                         img.draw_rectangle(i.rect())
                 lcd.display(img)
                 home_button = self.system_singleton.home_button
+                # TODO
                 led_w = self.system_singleton.led_w
                 if home_button.value() == 0 and self.but_stu == 1:
                     if led_w.value() == 1:
