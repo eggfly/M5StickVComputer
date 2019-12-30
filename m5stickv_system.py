@@ -16,13 +16,16 @@ from app_launcher import LauncherApp
 class M5StickVSystem:
     def __init__(self):
         self.pmu = AXP192()
-        self.pmu.setScreenBrightness(8)  # 7-15 is ok, normally 8
+        self.pmu.setScreenBrightness(0)
         self.pmu.set_on_pressed_listener(self.on_pek_button_pressed)
         self.pmu.set_on_long_pressed_listener(self.on_pek_button_long_pressed)
         self.app_stack = []
 
         lcd.init()
+        self.pmu.setScreenBrightness(0)
         lcd.rotation(2)  # Rotate the lcd 180deg
+        # set brightness to zero before first draw to avoid flower screen
+        self.pmu.setScreenBrightness(0)
 
         self.home_button = None
         self.top_button = None
@@ -36,6 +39,7 @@ class M5StickVSystem:
         self.message_queue = []
 
         self.is_drawing_dirty = False
+        self.is_boot_complete_first_draw = True
         self.navigate(LauncherApp(self))
 
     def button_irq(self, gpio, optional_pin_num=None):
@@ -143,6 +147,9 @@ class M5StickVSystem:
                 # this gc is to avoid: "core dump: misaligned load" error
                 # gc.collect()
                 # print("after gc.collect(), free memory:", gc.mem_free())
+                if self.is_boot_complete_first_draw:
+                    self.is_boot_complete_first_draw = False
+                    self.pmu.setScreenBrightness(8)  # 7-15 is ok, normally 8
                 print("sleep_ms for 1ms")
                 time.sleep_ms(1)
             else:

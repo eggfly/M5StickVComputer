@@ -30,8 +30,8 @@ def sizeof_fmt(num, suffix='B'):
 
 
 class ExplorerApp(BaseApp):
-    def __init__(self, system_singleton):
-        super(ExplorerApp, self).__init__(system_singleton)
+    def __init__(self, system):
+        super(ExplorerApp, self).__init__(system)
         self.current_offset = 0
         self.current_selected_index = 0
         self.__initialized = False
@@ -47,7 +47,8 @@ class ExplorerApp(BaseApp):
                 info["stat"] = f_stat
             except Exception as e:
                 info["stat"] = None
-                print("----- error when calling os.stat() ----- file_name =", file_name, e)
+                print(
+                    "----- error when calling os.stat() ----- file_name =", file_name, e)
             self.current_dir_file_info_list.append(info)
         print(self.current_dir_file_info_list)
         self.__initialized = True

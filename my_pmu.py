@@ -70,11 +70,15 @@ class AXP192:
             print("after machine.reset() never called")
 
     def __write_reg(self, reg_address, value):
-        self.i2cDev.writeto_mem(self.axp192Addr, reg_address, value, mem_size=8)
+        self.i2cDev.writeto_mem(
+            self.axp192Addr, reg_address, value, mem_size=8)
 
     def __read_reg(self, reg_address):
         self.i2cDev.writeto(self.axp192Addr, bytes([reg_address]))
         return (self.i2cDev.readfrom(self.axp192Addr, 1))[0]
+
+    def __is_bit_set(self, byte_data, bit_index):
+        return byte_data & (1 << bit_index) != 0
 
     def enable_adc(self, enable):
         if enable:
@@ -121,6 +125,10 @@ class AXP192:
         Vbat_MSB = self.__read_reg(0x79)
 
         return ((Vbat_LSB << 4) + Vbat_MSB) * 1.1  # AXP192-DS PG26 1.1mV/div
+
+    def is_usb_plugged_in(self):
+        power_data = self.__read_reg(0x00)
+        return self.__is_bit_set(power_data, 6) and self.__is_bit_set(power_data, 7)
 
     def getUSBVoltage(self):
         Vin_LSB = self.__read_reg(0x56)
@@ -185,7 +193,7 @@ class AXP192:
             raise OutOfRange("Range for brightness is from 0 to 15")
         self.__write_reg(0x91, (int(brightness) & 0x0f) << 4)
 
-    def getKeyStuatus(self):  # -1: NoPress, 1: ShortPress, 2:LongPress
+    def getKeyStatus(self):  # -1: NoPress, 1: ShortPress, 2:LongPress
         but_stu = self.__read_reg(0x46)
         if (but_stu & (0x1 << 1)):
             return 1
@@ -202,12 +210,12 @@ class AXP192:
 
     def enablePMICSleepMode(self, enable):
         if enable:
-            self.__write_reg(0x36, 0x27)  # Turnoff PEK Overtime Shutdown
+            # self.__write_reg(0x36, 0x27)  # Turnoff PEK Overtime Shutdown
             self.__write_reg(0x46, 0xFF)  # Clear the interrupts
             self.butChkTimer = Timer(Timer.TIMER2, Timer.CHANNEL0, mode=Timer.MODE_PERIODIC,
                                      period=500, callback=self.__chkPwrKeyWaitForSleep__)
         else:
-            self.__write_reg(0x36, 0x6C)  # Set to default
+            # self.__write_reg(0x36, 0x6C)  # Set to default
             try:
                 self.butChkTimer.stop()
                 del self.butChkTimer
@@ -216,4 +224,3 @@ class AXP192:
 
 
 # end of pmu.py
-

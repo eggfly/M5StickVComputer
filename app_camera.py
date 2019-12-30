@@ -5,8 +5,8 @@ import sensor
 import KPU as kpu
 
 class CameraApp(BaseApp):
-    def __init__(self, system_singleton):
-        super(CameraApp, self).__init__(system_singleton)
+    def __init__(self, system):
+        super(CameraApp, self).__init__(system)
         self.__initialized = False
     def __lazy_init(self):
         err_counter = 0
@@ -51,9 +51,9 @@ class CameraApp(BaseApp):
                         print(i)
                         img.draw_rectangle(i.rect())
                 lcd.display(img)
-                home_button = self.system_singleton.home_button
+                home_button = self.get_system().home_button
                 # TODO
-                led_w = self.system_singleton.led_w
+                led_w = self.get_system().led_w
                 if home_button.value() == 0 and self.but_stu == 1:
                     if led_w.value() == 1:
                         led_w.value(0)

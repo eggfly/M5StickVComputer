@@ -30,10 +30,11 @@ class LauncherApp(BaseApp):
         icon_margin_top = 5
         screen_canvas = image.Image()
         vbat = self.get_system().pmu.getVbatVoltage() / 1000.0
+        usb_plugged = self.get_system().pmu.is_usb_plugged_in()
         battery_level = self.calculate_battery_level(vbat)
         vbat_str = str(vbat) + "V"
         print("vbat", vbat_str)
-        screen_canvas.draw_string(180, 10, vbat_str, lcd.GREEN, scale=1)
+        # screen_canvas.draw_string(180, 10, vbat_str, lcd.GREEN, scale=1)
 
         def draw_icon(icon_path, center_x, center_y):
             """closure: an inner function inside a method"""
@@ -64,24 +65,27 @@ class LauncherApp(BaseApp):
         # draw center small arrow icon below
         draw_icon(self.arrow_icon_path, screen_canvas.width() // 2,
                   screen_canvas.height() // 2 + icon_height // 2 + icon_padding + icon_margin_top)
+        print("draw arrow ok")
         battery_percent = battery_level * 100.0
-        battery_icon = self.find_battery_icon(battery_percent, False)
-        draw_icon(battery_level, screen_canvas.width() - 10, 20)
+        battery_icon = self.find_battery_icon(battery_percent, usb_plugged)
+        print("before draw")
+        draw_icon(battery_icon, screen_canvas.width() - 30, 20)
+        print("after draw")
         lcd.display(screen_canvas)
         del screen_canvas
-        lcd.draw_string(1, 1, "Battery: %.3fV %.1f%%" %
+        lcd.draw_string(1, 1, "Bat: %.3fV %.1f%%" %
                         (vbat, battery_percent), lcd.GREEN)
 
     def navigate(self, app):
-        self.system_singleton.navigate(app)
+        self.get_system().navigate(app)
         print("navigate from", self, "to", app)
 
     def on_home_button_changed(self, state):
         app_id = self.app_list[self.cursor_index]["id"]
         if app_id == "camera":
-            self.navigate(CameraApp(self.system_singleton))
+            self.navigate(CameraApp(self.get_system()))
         elif app_id == "explorer":
-            self.navigate(ExplorerApp(self.system_singleton))
+            self.navigate(ExplorerApp(self.get_system()))
         return True
 
     def on_top_button_changed(self, state):
@@ -101,7 +105,7 @@ class LauncherApp(BaseApp):
         return True
 
     def find_battery_icon(self, battery_percent, is_charging):
-        icon_list = self.battery_charging_icon_list if is_charging else slef.battery_icon_list
+        icon_list = self.battery_charging_icon_list if is_charging else self.battery_icon_list
         index = int(battery_percent / 20.0)
         return icon_list[index]
 
