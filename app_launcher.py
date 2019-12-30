@@ -8,23 +8,17 @@ from framework import BaseApp
 from app_camera import CameraApp
 from app_explorer import ExplorerApp
 
+import res
+
 
 class LauncherApp(BaseApp):
     def __init__(self, system):
         super(LauncherApp, self).__init__(system)
         print("LauncherApp: super.__init__() called")
-        self.app_list = [
-            {"id": "camera", "icon": "/sd/icons/camera_64x60.jpg"},
-            {"id": "explorer", "icon": "/sd/icons/memory_card_64x60.jpg"},
-            {"id": "settings", "icon": "/sd/icons/settings_64x60.jpg"},
-            {"id": "music", "icon": "/sd/icons/music_64x60.jpg"},
-            {"id": "tools", "icon": "/sd/icons/tools_64x60.jpg"},
-            {"id": "brightness", "icon": "/sd/icons/brightness_64x60.jpg"},
-            {"id": "alert", "icon": "/sd/icons/alert_64x60.jpg"},
-            {"id": "power", "icon": "/sd/icons/power_64x60.jpg"},
-            {"id": "reboot", "icon": "/sd/icons/reboot_64x60.jpg"},
-        ]
-        self.arrow_icon_path = "/sd/icons/arrow_top_24x23.jpg"
+        self.app_list = res.app_list
+        self.battery_icon_list = res.battery_icon_list
+        self.battery_charging_icon_list = res.battery_charging_icon_list
+        self.arrow_icon_path = res.arrow_icon_path
         self.app_count = len(self.app_list)
         self.cursor_index = 0
 
@@ -40,9 +34,9 @@ class LauncherApp(BaseApp):
         vbat_str = str(vbat) + "V"
         print("vbat", vbat_str)
         screen_canvas.draw_string(180, 10, vbat_str, lcd.GREEN, scale=1)
-        # closure: an inner function inside a method
 
         def draw_icon(icon_path, center_x, center_y):
+            """closure: an inner function inside a method"""
             try:
                 icon = image.Image(icon_path)
                 screen_canvas.draw_image(icon, center_x - icon.width() // 2,
@@ -70,9 +64,13 @@ class LauncherApp(BaseApp):
         # draw center small arrow icon below
         draw_icon(self.arrow_icon_path, screen_canvas.width() // 2,
                   screen_canvas.height() // 2 + icon_height // 2 + icon_padding + icon_margin_top)
+        battery_percent = battery_level * 100.0
+        battery_icon = self.find_battery_icon(battery_percent, False)
+        draw_icon(battery_level, screen_canvas.width() - 10, 20)
         lcd.display(screen_canvas)
         del screen_canvas
-        lcd.draw_string(1, 1, "Battery: %.3fV %.1f%%" %(vbat, battery_level * 100.0), lcd.GREEN)
+        lcd.draw_string(1, 1, "Battery: %.3fV %.1f%%" %
+                        (vbat, battery_percent), lcd.GREEN)
 
     def navigate(self, app):
         self.system_singleton.navigate(app)
@@ -101,6 +99,11 @@ class LauncherApp(BaseApp):
         self.cursor_index = 0
         self.invalidate_drawing()
         return True
+
+    def find_battery_icon(self, battery_percent, is_charging):
+        icon_list = self.battery_charging_icon_list if is_charging else slef.battery_icon_list
+        index = int(battery_percent / 20.0)
+        return icon_list[index]
 
     def calculate_battery_level(self, vbat):
         levels = [4.13, 4.06, 3.98, 3.92, 3.87,
