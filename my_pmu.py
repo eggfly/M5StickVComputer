@@ -194,7 +194,7 @@ class AXP192:
 
     def setScreenBrightness(self, brightness):
         if brightness > 15 or brightness < 0:
-            raise OutOfRange("Range for brightness is from 0 to 15")
+            raise OutOfRange("Range for brightness is from 0 to 15, but min 7 is the screen visible value")
         self.__write_reg(0x91, (int(brightness) & 0x0f) << 4)
 
     def getKeyStatus(self):  # -1: NoPress, 1: ShortPress, 2:LongPress

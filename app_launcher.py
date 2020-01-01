@@ -2,6 +2,7 @@
 import os
 import lcd
 import sys
+import time
 
 import image
 
@@ -9,6 +10,7 @@ from framework import BaseApp
 from app_camera import CameraApp
 from app_explorer import ExplorerApp
 
+import config
 import resource
 
 
@@ -26,6 +28,7 @@ class LauncherApp(BaseApp):
         self.animation_count = 3
         self.pending_animation_values = []
         self.icon_path_to_image_cache = {}
+        self.app_periodic_task_last_time = 0
 
     def draw_icon(self, screen_canvas, icon_path, x, y, horizontal_align, vertical_align):
         """closure: an inner function inside a method"""
@@ -116,7 +119,18 @@ class LauncherApp(BaseApp):
                 self.navigate(CameraApp(self.get_system()))
             elif app_id == "explorer":
                 self.navigate(ExplorerApp(self.get_system()))
+            elif app_id == "brightness":
+                self.change_brightness()
         return True
+
+    def change_brightness(self):
+        value = config.get_brightness()
+        value += 1
+        if value > 15:
+            value = 7
+        self.get_system().pmu.setScreenBrightness(value)
+        config.save_config("brightness", value)
+        print("set and save brightness value to", value)
 
     def on_top_button_changed(self, state):
         if state == "pressed":
@@ -140,7 +154,10 @@ class LauncherApp(BaseApp):
         return True
 
     def app_periodic_task(self):
-        pass
+        now_ticks_ms = time.ticks_ms()
+        if now_ticks_ms - self.app_periodic_task_last_time > 2000:
+            self.app_periodic_task_last_time = now_ticks_ms
+            self.invalidate_drawing()
 
     def find_battery_icon(self, battery_percent, is_charging):
         icon_list = self.battery_charging_icon_list if is_charging else self.battery_icon_list

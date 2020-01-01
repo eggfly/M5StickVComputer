@@ -186,7 +186,7 @@ class M5StickVSystem:
         if self.is_boot_complete_first_draw:
             self.is_boot_complete_first_draw = False
             self.pmu.setScreenBrightness(
-                config.get_brigntness())  # 7-15 is ok, normally 8
+                config.get_brightness())  # 7-15 is ok, normally 8
 
     def run_inner(self):
         while True:
