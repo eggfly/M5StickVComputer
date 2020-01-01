@@ -3,11 +3,17 @@ app_list = [
     {"id": "explorer", "icon": "/sd/res/icons/memory_card_64x60.jpg"},
     {"id": "settings", "icon": "/sd/res/icons/settings_64x60.jpg"},
     {"id": "music", "icon": "/sd/res/icons/music_64x60.jpg"},
+    {"id": "video", "icon": "/sd/res/icons/video_64x60.jpg"},
+    {"id": "microphone", "icon": "/sd/res/icons/microphone_64x60.jpg"},
     {"id": "tools", "icon": "/sd/res/icons/tools_64x60.jpg"},
     {"id": "brightness", "icon": "/sd/res/icons/brightness_64x60.jpg"},
-    {"id": "alert", "icon": "/sd/res/icons/alert_64x60.jpg"},
+    # {"id": "alert", "icon": "/sd/res/icons/alert_64x60.jpg"},
     {"id": "power", "icon": "/sd/res/icons/power_64x60.jpg"},
     {"id": "reboot", "icon": "/sd/res/icons/reboot_64x60.jpg"},
+    {"id": "code", "icon": "/sd/res/icons/code_64x60.jpg"},
+    {"id": "python", "icon": "/sd/res/icons/python_64x60.jpg"},
+    {"id": "battery", "icon": "/sd/res/icons/battery_64x60.jpg"},
+    {"id": "system_info", "icon": "/sd/res/icons/speedometer_64x60.jpg"},
 ]
 battery_icon_list = [
     "/sd/res/icons/battery/0.jpg",

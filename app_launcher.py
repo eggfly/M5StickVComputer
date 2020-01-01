@@ -3,12 +3,14 @@ import os
 import lcd
 import sys
 import time
+import machine
 
 import image
 
 from framework import BaseApp
 from app_camera import CameraApp
 from app_explorer import ExplorerApp
+from app_system_info import SystemInfoApp
 
 import config
 import resource
@@ -119,6 +121,12 @@ class LauncherApp(BaseApp):
                 self.navigate(CameraApp(self.get_system()))
             elif app_id == "explorer":
                 self.navigate(ExplorerApp(self.get_system()))
+            elif app_id == "reboot":
+                machine.reset()
+            elif app_id == "power":
+                self.get_system().pmu.setEnterSleepMode()
+            elif app_id == "system_info":
+                self.navigate(SystemInfoApp(self.get_system()))
             elif app_id == "brightness":
                 self.change_brightness()
         return True
