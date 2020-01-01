@@ -22,3 +22,6 @@ class BaseApp:
 
     def get_system(self):
         return self.system
+
+    def app_periodic_task(self):
+        pass

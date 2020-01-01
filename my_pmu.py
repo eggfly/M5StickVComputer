@@ -31,6 +31,7 @@ class AXP192:
         self.__preButPressed__ = -1
         self.onPressedListener = None
         self.onLongPressedListener = None
+        self.system_periodic_task = None
         scan_list = self.i2cDev.scan()
         if self.axp192Addr not in scan_list:
             raise NotFoundError
@@ -43,7 +44,12 @@ class AXP192:
     def set_on_long_pressed_listener(self, listener):
         self.onLongPressedListener = listener
 
+    def set_system_periodic_task(self, task):
+        self.system_periodic_task = task
+
     def __chkPwrKeyWaitForSleep__(self, timer):
+        if self.system_periodic_task:
+            self.system_periodic_task(self)
         self.i2cDev.writeto(52, bytes([0x46]))
         pek_stu = (self.i2cDev.readfrom(52, 1))[0]
         self.i2cDev.writeto_mem(52, 0x46, 0xFF, mem_size=8)  # Clear IRQ

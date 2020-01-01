@@ -1,6 +1,7 @@
 
 import os
 import lcd
+import sys
 
 import image
 
@@ -8,26 +9,47 @@ from framework import BaseApp
 from app_camera import CameraApp
 from app_explorer import ExplorerApp
 
-import res
+import resource
 
 
 class LauncherApp(BaseApp):
     def __init__(self, system):
         super(LauncherApp, self).__init__(system)
         print("LauncherApp: super.__init__() called")
-        self.app_list = res.app_list
-        self.battery_icon_list = res.battery_icon_list
-        self.battery_charging_icon_list = res.battery_charging_icon_list
-        self.arrow_icon_path = res.arrow_icon_path
+        self.app_list = resource.app_list
+        self.battery_icon_list = resource.battery_icon_list
+        self.battery_charging_icon_list = resource.battery_charging_icon_list
+        self.arrow_icon_path = resource.arrow_icon_path
         self.app_count = len(self.app_list)
         self.cursor_index = 0
+        self.need_show_top_button_tip = True
+
+    def draw_icon(self, screen_canvas, icon_path, x, y, horizontal_align, vertical_align):
+        """closure: an inner function inside a method"""
+        try:
+            icon = image.Image(icon_path)
+            # calculate horizontal
+            if "center" == horizontal_align:
+                left = x - icon.width() // 2
+            elif "right" == horizontal_align:
+                left = x - icon.width()
+            # calculate vertical
+            if "center" == vertical_align:
+                top = y - icon.height() // 2
+            elif "top" == vertical_align:
+                top = y
+            screen_canvas.draw_image(icon, left, top)
+            del icon
+        except Exception as e:
+            print("cannot draw icon:", e)
+            sys.print_exception(e)
 
     def on_draw(self):
         print("LauncherApp.on_draw()")
         icon_width = 64
         icon_height = 60
         icon_padding = 6
-        icon_margin_top = 5
+        icon_margin_top = 0
         screen_canvas = image.Image()
         vbat = self.get_system().pmu.getVbatVoltage() / 1000.0
         usb_plugged = self.get_system().pmu.is_usb_plugged_in()
@@ -35,16 +57,6 @@ class LauncherApp(BaseApp):
         vbat_str = str(vbat) + "V"
         print("vbat", vbat_str)
         # screen_canvas.draw_string(180, 10, vbat_str, lcd.GREEN, scale=1)
-
-        def draw_icon(icon_path, center_x, center_y):
-            """closure: an inner function inside a method"""
-            try:
-                icon = image.Image(icon_path)
-                screen_canvas.draw_image(icon, center_x - icon.width() // 2,
-                                         center_y - icon.height() // 2)
-                del icon
-            except Exception as e:
-                print("cannot draw icon:", e)
 
         icons_count = screen_canvas.width() // (icon_width + icon_padding)
         if icons_count % 2 == 0:
@@ -57,35 +69,37 @@ class LauncherApp(BaseApp):
             icon_center_x = screen_canvas.width() // 2 + i * (icon_width + icon_padding)
             icon_center_y = screen_canvas.height() // 2 + icon_margin_top
             index = (self.cursor_index + i) % self.app_count
-            if i == 0:
-                # lift a little space for current focused app icon
-                icon_center_y -= 10
-            draw_icon(self.app_list[index]["icon"],
-                      icon_center_x, icon_center_y)
+            self.draw_icon(screen_canvas, self.app_list[index]["icon"],
+                           icon_center_x, icon_center_y, "center", "center")
         # draw center small arrow icon below
-        draw_icon(self.arrow_icon_path, screen_canvas.width() // 2,
-                  screen_canvas.height() // 2 + icon_height // 2 + icon_padding + icon_margin_top)
+        self.draw_icon(screen_canvas, self.arrow_icon_path, screen_canvas.width() // 2,
+                       screen_canvas.height() // 2 + icon_height // 2 + icon_padding + icon_margin_top, "center", "top")
         print("draw arrow ok")
         battery_percent = battery_level * 100.0
         battery_icon = self.find_battery_icon(battery_percent, usb_plugged)
-        print("before draw")
-        draw_icon(battery_icon, screen_canvas.width() - 30, 20)
-        print("after draw")
+        print("before draw battery")
+        battery_icon_padding = 5
+        self.draw_icon(screen_canvas, battery_icon,
+                       screen_canvas.width() - battery_icon_padding, battery_icon_padding, "right", "top")
+        print("after draw battery")
         lcd.display(screen_canvas)
         del screen_canvas
-        lcd.draw_string(1, 1, "Bat: %.3fV %.1f%%" %
+        lcd.draw_string(1, 1, "Battery: %.3fV %.1f%%" %
                         (vbat, battery_percent), lcd.GREEN)
+        print("launcher on_draw end")
 
     def navigate(self, app):
         self.get_system().navigate(app)
         print("navigate from", self, "to", app)
 
     def on_home_button_changed(self, state):
-        app_id = self.app_list[self.cursor_index]["id"]
-        if app_id == "camera":
-            self.navigate(CameraApp(self.get_system()))
-        elif app_id == "explorer":
-            self.navigate(ExplorerApp(self.get_system()))
+        # avoid navigate twice here
+        if state == "pressed":
+            app_id = self.app_list[self.cursor_index]["id"]
+            if app_id == "camera":
+                self.navigate(CameraApp(self.get_system()))
+            elif app_id == "explorer":
+                self.navigate(ExplorerApp(self.get_system()))
         return True
 
     def on_top_button_changed(self, state):
@@ -103,6 +117,9 @@ class LauncherApp(BaseApp):
         self.cursor_index = 0
         self.invalidate_drawing()
         return True
+
+    def app_periodic_task(self):
+        pass
 
     def find_battery_icon(self, battery_percent, is_charging):
         icon_list = self.battery_charging_icon_list if is_charging else self.battery_icon_list

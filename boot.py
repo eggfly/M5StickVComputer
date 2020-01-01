@@ -1,3 +1,5 @@
+# import gc
+# gc.disable()
 
 from m5stickv_system import M5StickVSystem
 

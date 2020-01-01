@@ -6,8 +6,11 @@ from Maix import GPIO
 from board import board_info
 from fpioa_manager import fm
 
-#import gc
+import image
+# import gc
 import time
+import resource
+import config
 
 from my_pmu import AXP192
 from app_launcher import LauncherApp
@@ -19,6 +22,7 @@ class M5StickVSystem:
         self.pmu.setScreenBrightness(0)
         self.pmu.set_on_pressed_listener(self.on_pek_button_pressed)
         self.pmu.set_on_long_pressed_listener(self.on_pek_button_long_pressed)
+        self.pmu.set_system_periodic_task(self.system_periodic_task)
         self.app_stack = []
 
         lcd.init()
@@ -40,11 +44,19 @@ class M5StickVSystem:
 
         self.is_drawing_dirty = False
         self.is_boot_complete_first_draw = True
+        self.show_provision()
         self.navigate(LauncherApp(self))
 
+    def show_provision(self):
+        img = image.Image(resource.provision_image_path)
+        lcd.display(img)
+        del img
+        self.check_restore_brightness()
+        self.wait_key()
+
     def button_irq(self, gpio, optional_pin_num=None):
+        print("button_irq start:", gpio, optional_pin_num)
         # Notice: optional_pin_num exist in older firmware
-        # gpio.disirq()
         if self.is_handling_irq:
             print("is_handing_irq, ignore")
             return
@@ -53,12 +65,13 @@ class M5StickVSystem:
         state = "released" if value else "pressed"
         # msg = {"type": "key_event", "gpio": gpio, "state": state}
         # self.message_queue.append(msg)
-        # print("button_irq enqueued:", gpio, optional_pin_num, state)
+        print("button_irq:", gpio, optional_pin_num, state)
         if self.home_button is gpio:
             self.on_home_button_changed(state)
         elif self.top_button is gpio:
             self.on_top_button_changed(state)
         self.is_handing_irq = False
+        print("button_irq end:", gpio, optional_pin_num, state)
         #gpio.irq(self.button_irq, GPIO.IRQ_BOTH, GPIO.WAKEUP_NOT_SUPPORT, 7)
 
     # noinspection SpellCheckingInspection
@@ -67,8 +80,8 @@ class M5StickVSystem:
         fm.register(board_info.BUTTON_A, fm.fpioa.GPIOHS21)
         # PULL_UP is required here!
         self.home_button = GPIO(GPIO.GPIOHS21, GPIO.IN, GPIO.PULL_UP)
-        self.home_button.irq(self.button_irq, GPIO.IRQ_BOTH,
-                             GPIO.WAKEUP_NOT_SUPPORT, 7)
+        # self.home_button.irq(self.button_irq, GPIO.IRQ_BOTH,
+        #                      GPIO.WAKEUP_NOT_SUPPORT, 7)
 
         if self.home_button.value() == 0:  # If don't want to run the demo
             sys.exit()
@@ -77,9 +90,9 @@ class M5StickVSystem:
         fm.register(board_info.BUTTON_B, fm.fpioa.GPIOHS22)
         # PULL_UP is required here!
         self.top_button = GPIO(GPIO.GPIOHS22, GPIO.IN, GPIO.PULL_UP)
-        self.top_button.irq(self.button_irq, GPIO.IRQ_BOTH,
-                            GPIO.WAKEUP_NOT_SUPPORT, 7)
-        return # TODO: fix me
+        # self.top_button.irq(self.button_irq, GPIO.IRQ_BOTH,
+        #                     GPIO.WAKEUP_NOT_SUPPORT, 7)
+        return  # TODO: fix me
         fm.register(board_info.LED_W, fm.fpioa.GPIO3)
         self.led_w = GPIO(GPIO.GPIO3, GPIO.OUT)
         self.led_w.value(1)  # RGBW LEDs are Active Low
@@ -105,6 +118,7 @@ class M5StickVSystem:
         fm.register(board_info.SPK_LRCLK, fm.fpioa.I2S0_WS)
 
     def invalidate_drawing(self):
+        print("invalidate_drawing")
         self.is_drawing_dirty = True
 
     def run(self):
@@ -119,10 +133,13 @@ class M5StickVSystem:
             lcd.clear(lcd.BLUE)
             msg = "** " + str(e)
             chunks, chunk_size = len(msg), 29
-            msg_lines = [ msg[i:i+chunk_size] for i in range(0, chunks, chunk_size) ]
+            msg_lines = [msg[i:i+chunk_size]
+                         for i in range(0, chunks, chunk_size)]
             # "A problem has been detected and windows has been shut down to prevent damange to your m5stickv :)"
-            lcd.draw_string(1, 1, "A problem has been detected and windows", lcd.WHITE, lcd.BLUE)
-            lcd.draw_string(1, 1 + 5 + 16, "Technical information:", lcd.WHITE, lcd.BLUE)
+            lcd.draw_string(
+                1, 1, "A problem has been detected and windows", lcd.WHITE, lcd.BLUE)
+            lcd.draw_string(
+                1, 1 + 5 + 16, "Technical information:", lcd.WHITE, lcd.BLUE)
             current_y = 1 + 5 + 16 * 2
             for line in msg_lines:
                 lcd.draw_string(1, current_y, line, lcd.WHITE, lcd.BLUE)
@@ -130,9 +147,32 @@ class M5StickVSystem:
                 if current_y >= lcd.height():
                     break
             lcd.draw_string(1, current_y, s, lcd.WHITE, lcd.BLUE)
-            lcd.draw_string(1, lcd.height() - 17, "Will reboot after 10 seconds..", lcd.WHITE, lcd.BLUE)
+            lcd.draw_string(
+                1, lcd.height() - 17, "Will reboot after 10 seconds..", lcd.WHITE, lcd.BLUE)
             time.sleep(10)
             machine.reset()
+
+    def wait_key(self):
+        print("wait for key release")
+        while self.home_button.value() == 0 or self.top_button.value() == 0:
+            pass
+        print("key released, now wait for a key")
+        while self.home_button.value() == 1 and self.top_button.value() == 1:
+            pass
+        print("some key pressed")
+        if self.home_button.value() == 0:
+            print("home_button pressed")
+            return (self.home_button, "pressed")
+            self.on_home_button_changed("pressed")
+        elif self.top_button.value() == 0:
+            print("top_button pressed")
+            return (self.top_button, "pressed")
+            self.on_top_button_changed("pressed")
+
+    def check_restore_brightness(self):
+        if self.is_boot_complete_first_draw:
+            self.is_boot_complete_first_draw = False
+            self.pmu.setScreenBrightness(config.get_brigntness())  # 7-15 is ok, normally 8
 
     def run_inner(self):
         while True:
@@ -140,22 +180,26 @@ class M5StickVSystem:
                 print("drawing is dirty")
                 self.is_drawing_dirty = False
                 current_app = self.get_current_app()
-                # gc.collect()
                 # print("before on_draw() of", current_app, "free memory:", gc.mem_free())
+                print("current_app.on_draw() start")
                 current_app.on_draw()
+                print("current_app.on_draw() end")
                 # print("on_draw() of", current_app, "called, free memory:", gc.mem_free())
                 # this gc is to avoid: "core dump: misaligned load" error
-                # gc.collect()
                 # print("after gc.collect(), free memory:", gc.mem_free())
-                if self.is_boot_complete_first_draw:
-                    self.is_boot_complete_first_draw = False
-                    self.pmu.setScreenBrightness(8)  # 7-15 is ok, normally 8
-                print("sleep_ms for 1ms")
-                time.sleep_ms(1)
+                self.check_restore_brightness()
+                # print("sleep_ms for 1ms")
+                # time.sleep_ms(1)
+                # print("sleep_ms for 1ms end")
             else:
-                pass
-                # print("sleep_ms for a while")
-                # time.sleep_ms(100)  # TODO check
+                key_info = self.wait_key()
+                if len(key_info) == 2:
+                    key_obj = key_info[0]
+                    state = key_info[1]
+                    if key_obj == self.home_button:
+                        self.on_home_button_changed(state)
+                    elif key_obj == self.top_button:
+                        self.on_top_button_changed(state)
 
     def navigate(self, app):
         self.app_stack.append(app)
@@ -166,7 +210,7 @@ class M5StickVSystem:
         self.invalidate_drawing()
 
     def get_current_app(self):
-        return self.app_stack[-1]
+        return self.app_stack[-1] if len(self.app_stack) > 0 else None
 
     def on_pek_button_pressed(self, axp):
         # treat short press as navigate back
@@ -176,6 +220,11 @@ class M5StickVSystem:
             print("on_back_pressed() not handled, exit current app")
             self.navigate_back()
         machine.reset()
+
+    def system_periodic_task(self, axp):
+        current = self.get_current_app()
+        if current:
+            current.app_periodic_task()
 
     # noinspection PyMethodMayBeStatic
     def on_pek_button_long_pressed(self, axp):
@@ -189,4 +238,3 @@ class M5StickVSystem:
     def on_top_button_changed(self, state):
         print("on_top_button_changed", state)
         self.get_current_app().on_top_button_changed(state)
-
