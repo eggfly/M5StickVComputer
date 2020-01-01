@@ -14,6 +14,7 @@ import config
 
 from my_pmu import AXP192
 from app_launcher import LauncherApp
+from framework import NeedRebootException
 
 
 class M5StickVSystem:
@@ -40,7 +41,6 @@ class M5StickVSystem:
         self.spk_sd = None
         self.is_handling_irq = False
         self.init_fm()
-        self.message_queue = []
 
         self.is_drawing_dirty = False
         self.is_boot_complete_first_draw = True
@@ -51,8 +51,16 @@ class M5StickVSystem:
         img = image.Image(resource.provision_image_path)
         lcd.display(img)
         del img
+        lcd.draw_string(54, 6,
+                        "NEXT", lcd.RED, lcd.BLACK)
+        lcd.draw_string(168, 6,
+                        "ENTER", lcd.RED, lcd.BLACK)
+        lcd.draw_string(152, lcd.height() - 18,
+                        "BACK/POWER", lcd.RED, lcd.BLACK)
+        lcd.draw_string(21, lcd.height() - 18,
+                        "StickV Computer", lcd.WHITE, lcd.BLACK)
         self.check_restore_brightness()
-        self.wait_key()
+        self.wait_event()
 
     def button_irq(self, gpio, optional_pin_num=None):
         print("button_irq start:", gpio, optional_pin_num)
@@ -64,7 +72,6 @@ class M5StickVSystem:
         value = gpio.value()
         state = "released" if value else "pressed"
         # msg = {"type": "key_event", "gpio": gpio, "state": state}
-        # self.message_queue.append(msg)
         print("button_irq:", gpio, optional_pin_num, state)
         if self.home_button is gpio:
             self.on_home_button_changed(state)
@@ -152,15 +159,19 @@ class M5StickVSystem:
             time.sleep(10)
             machine.reset()
 
-    def wait_key(self):
-        print("wait for key release")
+    def wait_event(self):
+        """key event or view invalidate event"""
+        print("wait for all key release")
         while self.home_button.value() == 0 or self.top_button.value() == 0:
             pass
-        print("key released, now wait for a key")
-        while self.home_button.value() == 1 and self.top_button.value() == 1:
+        print("key released, now wait for a event")
+        while self.home_button.value() == 1 and self.top_button.value() == 1 and not self.is_drawing_dirty:
             pass
-        print("some key pressed")
-        if self.home_button.value() == 0:
+        print("some event arrived")
+        if self.is_drawing_dirty:
+            print("drawing dirty event")
+            return ("drawing", "dirty")
+        elif self.home_button.value() == 0:
             print("home_button pressed")
             return (self.home_button, "pressed")
             self.on_home_button_changed("pressed")
@@ -168,11 +179,14 @@ class M5StickVSystem:
             print("top_button pressed")
             return (self.top_button, "pressed")
             self.on_top_button_changed("pressed")
+        else:
+            return None
 
     def check_restore_brightness(self):
         if self.is_boot_complete_first_draw:
             self.is_boot_complete_first_draw = False
-            self.pmu.setScreenBrightness(config.get_brigntness())  # 7-15 is ok, normally 8
+            self.pmu.setScreenBrightness(
+                config.get_brigntness())  # 7-15 is ok, normally 8
 
     def run_inner(self):
         while True:
@@ -192,13 +206,13 @@ class M5StickVSystem:
                 # time.sleep_ms(1)
                 # print("sleep_ms for 1ms end")
             else:
-                key_info = self.wait_key()
-                if len(key_info) == 2:
-                    key_obj = key_info[0]
-                    state = key_info[1]
-                    if key_obj == self.home_button:
+                event_info = self.wait_event()
+                if event_info is not None and len(event_info) == 2:
+                    event = event_info[0]
+                    state = event_info[1]
+                    if event == self.home_button:
                         self.on_home_button_changed(state)
-                    elif key_obj == self.top_button:
+                    elif event == self.top_button:
                         self.on_top_button_changed(state)
 
     def navigate(self, app):
@@ -206,7 +220,8 @@ class M5StickVSystem:
         self.invalidate_drawing()
 
     def navigate_back(self):
-        self.app_stack.pop()
+        if len(self.app_stack) > 0:
+            self.app_stack.pop()
         self.invalidate_drawing()
 
     def get_current_app(self):
@@ -215,11 +230,16 @@ class M5StickVSystem:
     def on_pek_button_pressed(self, axp):
         # treat short press as navigate back
         print("on_pek_button_pressed", axp)
-        handled = self.get_current_app().on_back_pressed()
-        if handled is False:
+        handled = False
+        current_app = self.get_current_app()
+        if current_app:
+            try:
+                handled = current_app.on_back_pressed()
+            except NeedRebootException:
+                machine.reset()
+        if not handled:
             print("on_back_pressed() not handled, exit current app")
             self.navigate_back()
-        machine.reset()
 
     def system_periodic_task(self, axp):
         current = self.get_current_app()

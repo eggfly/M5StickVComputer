@@ -1,3 +1,6 @@
+class NeedRebootException(Exception):
+    pass
+
 
 class BaseApp:
     def __init__(self, system):

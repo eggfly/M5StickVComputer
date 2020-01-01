@@ -83,7 +83,6 @@ class ExplorerApp(BaseApp):
                 if S_ISDIR(f_stat[0]):
                     file_name = file_name + '/'
                 file_readable_size = sizeof_fmt(f_stat[6])
-                # gc.collect()
                 lcd.draw_string(lcd.width() - 50, y_offset,
                                 file_readable_size, lcd.WHITE, lcd.BLUE)
             is_current = self.current_selected_index == i

@@ -23,11 +23,19 @@ class LauncherApp(BaseApp):
         self.app_count = len(self.app_list)
         self.cursor_index = 0
         self.need_show_top_button_tip = True
+        self.animation_count = 3
+        self.pending_animation_values = []
+        self.icon_path_to_image_cache = {}
 
     def draw_icon(self, screen_canvas, icon_path, x, y, horizontal_align, vertical_align):
         """closure: an inner function inside a method"""
         try:
-            icon = image.Image(icon_path)
+            icon = None
+            if icon_path in self.icon_path_to_image_cache:
+                icon = self.icon_path_to_image_cache[icon_path]
+            else:
+                icon = image.Image(icon_path)
+                self.icon_path_to_image_cache[icon_path] = icon
             # calculate horizontal
             if "center" == horizontal_align:
                 left = x - icon.width() // 2
@@ -39,7 +47,6 @@ class LauncherApp(BaseApp):
             elif "top" == vertical_align:
                 top = y
             screen_canvas.draw_image(icon, left, top)
-            del icon
         except Exception as e:
             print("cannot draw icon:", e)
             sys.print_exception(e)
@@ -65,9 +72,18 @@ class LauncherApp(BaseApp):
             icons_count += 2
         # icons_count must be an odd integer
         icons_half_count = icons_count // 2
+        animation_offset = 0
+        # handle animation
+        if len(self.pending_animation_values) > 0:
+            anim_index = self.pending_animation_values.pop()
+            animation_offset = int(
+                (icon_width + icon_padding * 2) * anim_index / self.animation_count)
+            # invalidate when need animation
+            self.invalidate_drawing()
         for i in range(-icons_half_count, icons_half_count + 1):
             icon_center_x = screen_canvas.width() // 2 + i * (icon_width + icon_padding)
             icon_center_y = screen_canvas.height() // 2 + icon_margin_top
+            icon_center_x += animation_offset
             index = (self.cursor_index + i) % self.app_count
             self.draw_icon(screen_canvas, self.app_list[index]["icon"],
                            icon_center_x, icon_center_y, "center", "center")
@@ -78,13 +94,13 @@ class LauncherApp(BaseApp):
         battery_percent = battery_level * 100.0
         battery_icon = self.find_battery_icon(battery_percent, usb_plugged)
         print("before draw battery")
-        battery_icon_padding = 5
+        battery_icon_padding = 3
         self.draw_icon(screen_canvas, battery_icon,
                        screen_canvas.width() - battery_icon_padding, battery_icon_padding, "right", "top")
         print("after draw battery")
         lcd.display(screen_canvas)
         del screen_canvas
-        lcd.draw_string(1, 1, "Battery: %.3fV %.1f%%" %
+        lcd.draw_string(3, 3, "Battery: %.3fV %.1f%%" %
                         (vbat, battery_percent), lcd.GREEN)
         print("launcher on_draw end")
 
@@ -108,12 +124,17 @@ class LauncherApp(BaseApp):
             print(self.cursor_index, len(self.app_list))
             if self.cursor_index >= self.app_count:
                 self.cursor_index = 0
+            self.generate_pending_animations()
             self.invalidate_drawing()
             print(self.cursor_index, len(self.app_list))
         return True
 
+    def generate_pending_animations(self):
+        self.pending_animation_values = list(range(self.animation_count))
+
     def on_back_pressed(self):
         # handled by launcher app
+        # TODO show power options
         self.cursor_index = 0
         self.invalidate_drawing()
         return True

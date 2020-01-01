@@ -72,8 +72,6 @@ class AXP192:
         if pek_stu & (0x01 << 1):
             if self.onPressedListener:
                 self.onPressedListener(self)
-            print("before machine.reset()")
-            print("after machine.reset() never called")
 
     def __write_reg(self, reg_address, value):
         self.i2cDev.writeto_mem(

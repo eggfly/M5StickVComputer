@@ -1,13 +1,15 @@
 import lcd
-from framework import BaseApp
+from framework import BaseApp, NeedRebootException
 
 import sensor
 import KPU as kpu
+
 
 class CameraApp(BaseApp):
     def __init__(self, system):
         super(CameraApp, self).__init__(system)
         self.__initialized = False
+
     def __lazy_init(self):
         err_counter = 0
 
@@ -26,7 +28,7 @@ class CameraApp(BaseApp):
         sensor.set_pixformat(sensor.RGB565)
         sensor.set_framesize(sensor.QVGA)  # QVGA=320x240
         sensor.run(1)
-        
+
         print("progress 2 OK!")
         self.task = kpu.load(0x300000)  # Load Model File from Flash
         anchor = (1.889, 2.5245, 2.9465, 3.94056, 3.99987,
@@ -36,8 +38,12 @@ class CameraApp(BaseApp):
         kpu.init_yolo2(self.task, 0.5, 0.3, 5, anchor)
 
         self.but_stu = 1
-        
+
         self.__initialized = True
+
+    def on_back_pressed(self):
+        raise NeedRebootException()
+
     def on_draw(self):
         if not self.__initialized:
             self.__lazy_init()
@@ -45,7 +51,8 @@ class CameraApp(BaseApp):
             while True:
                 img = sensor.snapshot()  # Take an image from sensor
                 print("progress 4 OK!")
-                bbox = kpu.run_yolo2(self.task, img)  # Run the detection routine
+                # Run the detection routine
+                bbox = kpu.run_yolo2(self.task, img)
                 if bbox:
                     for i in bbox:
                         print(i)
